@@ -430,6 +430,9 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                     symbol={data.assetSymbol}
                     interval={interval}
                     onIntervalChange={setInterval}
+                    drawingLevels={data.drawingLevels}
+                    livePrice={data.inTrade ? data.tradeDetails?.currentPrice : data.conditionReport?.currentPrice}
+                    currency={currency}
                   />
                 </div>
               </div>

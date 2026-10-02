@@ -8,12 +8,23 @@ import { calculateBollingerBands } from '@/lib/analysis/indicators/bollinger';
 import { calculateRSI } from '@/lib/analysis/indicators/rsi';
 import { calculateMACD } from '@/lib/analysis/indicators/macd';
 
+export interface ChartDrawingLevel {
+  type: string;
+  price: number;
+  label: string;
+  color: string;
+  lineStyle?: 'solid' | 'dashed';
+}
+
 interface CandlestickChartProps {
   candles: Candle[];
   symbol: string;
   interval: CandleInterval;
   onIntervalChange: (interval: CandleInterval) => void;
   isLoading?: boolean;
+  drawingLevels?: ChartDrawingLevel[];
+  livePrice?: number;
+  currency?: string;
 }
 
 export function CandlestickChart({
@@ -22,6 +33,9 @@ export function CandlestickChart({
   interval,
   onIntervalChange,
   isLoading,
+  drawingLevels = [],
+  livePrice,
+  currency,
 }: CandlestickChartProps) {
   // Indicator toggles
   const [showEma20, setShowEma20] = useState(true);
@@ -47,9 +61,9 @@ export function CandlestickChart({
   // SVG Chart Dimensions
   const width = 850;
   const height = 400;
-  const paddingRight = 60;
+  const paddingRight = 75; // expanded to fit full price pill badges
   const paddingLeft = 10;
-  const paddingTop = 20;
+  const paddingTop = 25;
   const paddingBottom = 40;
 
   const chartWidth = width - paddingLeft - paddingRight;
@@ -58,7 +72,7 @@ export function CandlestickChart({
   const visibleCandles = candles.slice(-50); // Show last 50 candles for clean display
   const offset = Math.max(0, candles.length - 50);
 
-  // Price range calculation
+  // Price range calculation with inclusion of drawing levels and live price
   const { minPrice, maxPrice, maxVolume } = useMemo(() => {
     if (visibleCandles.length === 0) return { minPrice: 0, maxPrice: 100, maxVolume: 100 };
     let min = Infinity;
@@ -71,13 +85,28 @@ export function CandlestickChart({
       if (c.volume > maxVol) maxVol = c.volume;
     });
 
-    const buffer = (max - min) * 0.05 || 1;
+    // Expand price bounds so drawings (SL, TP, Entry) are fully in-frame
+    if (drawingLevels && drawingLevels.length > 0) {
+      drawingLevels.forEach((lvl) => {
+        if (Number.isFinite(lvl.price) && lvl.price > 0) {
+          if (lvl.price < min) min = lvl.price;
+          if (lvl.price > max) max = lvl.price;
+        }
+      });
+    }
+
+    if (livePrice && Number.isFinite(livePrice) && livePrice > 0) {
+      if (livePrice < min) min = livePrice;
+      if (livePrice > max) max = livePrice;
+    }
+
+    const buffer = (max - min) * 0.06 || 1;
     return {
       minPrice: min - buffer,
       maxPrice: max + buffer,
       maxVolume: maxVol || 1,
     };
-  }, [visibleCandles]);
+  }, [visibleCandles, drawingLevels, livePrice]);
 
   const priceRange = maxPrice - minPrice || 1;
   const candleWidth = Math.max(4, (chartWidth / (visibleCandles.length || 1)) * 0.7);
@@ -89,11 +118,30 @@ export function CandlestickChart({
 
   const activeCandle = hoverIndex !== null ? visibleCandles[hoverIndex] : visibleCandles[visibleCandles.length - 1];
   const activeActualIdx = hoverIndex !== null ? offset + hoverIndex : candles.length - 1;
+  const currentLivePrice = livePrice || activeCandle?.close || 0;
 
   return (
     <div className="bg-[#0f172a] border border-border rounded-xl p-4 shadow-xl">
-      {/* Top Controls Bar */}
+      {/* Top Header: Live Price Ticker & Timeframe Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-border pb-3">
+        {/* Live Asset Price Ticker */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+            <span className="font-extrabold text-white text-base tracking-wide font-mono">
+              {symbol}
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">LIVE</span>
+            <span className="text-base font-black text-emerald-300 font-mono">
+              {currency === 'USDT' || symbol.includes('USDT') || symbol.includes('BTC') || symbol.includes('ETH') || symbol.includes('SOL')
+                ? `$${currentLivePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : `₹${currentLivePrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            </span>
+          </div>
+        </div>
+
         {/* Interval Selector */}
         <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
           {intervals.map((int) => (
@@ -161,7 +209,7 @@ export function CandlestickChart({
                 : 'bg-slate-900 text-slate-400 border-slate-800'
             }`}
           >
-            RSI (14)
+            RSI
           </button>
           <button
             onClick={() => setShowMacd(!showMacd)}
@@ -178,21 +226,35 @@ export function CandlestickChart({
 
       {/* Candlestick Crosshair / Data HUD */}
       {activeCandle && (
-        <div className="flex flex-wrap items-center gap-4 text-xs font-mono mb-2 text-slate-300 bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-          <span className="text-slate-400">
-            {new Date(activeCandle.time * 1000).toLocaleString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-              day: '2-digit',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </span>
-          <span>O: <strong className="text-white">{activeCandle.open}</strong></span>
-          <span>H: <strong className="text-emerald-400">{activeCandle.high}</strong></span>
-          <span>L: <strong className="text-rose-400">{activeCandle.low}</strong></span>
-          <span>C: <strong className={activeCandle.close >= activeCandle.open ? 'text-emerald-400' : 'text-rose-400'}>{activeCandle.close}</strong></span>
-          <span>Vol: <strong className="text-slate-400">{activeCandle.volume.toLocaleString('en-IN')}</strong></span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2 text-xs font-mono text-slate-400 bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
+          <div>
+            <span className="text-slate-500 mr-1">Time:</span>
+            <span className="text-slate-200">
+              {new Date(activeCandle.time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-500 mr-1">O:</span>
+            <span className="text-slate-200">{activeCandle.open.toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-slate-500 mr-1">H:</span>
+            <span className="text-emerald-400">{activeCandle.high.toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-slate-500 mr-1">L:</span>
+            <span className="text-rose-400">{activeCandle.low.toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-slate-500 mr-1">C:</span>
+            <span className={activeCandle.close >= activeCandle.open ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+              {activeCandle.close.toFixed(2)}
+            </span>
+          </div>
+          <div>
+            <span className="text-slate-500 mr-1">Vol:</span>
+            <span className="text-slate-300">{Math.round(activeCandle.volume).toLocaleString()}</span>
+          </div>
           {showEma20 && ema20[activeActualIdx] !== null && (
             <span className="text-amber-400">EMA20: {ema20[activeActualIdx]}</span>
           )}
@@ -215,6 +277,13 @@ export function CandlestickChart({
           className="w-full h-auto cursor-crosshair"
           onMouseLeave={() => setHoverIndex(null)}
         >
+          <defs>
+            <linearGradient id="livePriceGlow" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+
           {/* Price Grid Lines */}
           {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = paddingTop + chartHeight * ratio;
@@ -395,6 +464,131 @@ export function CandlestickChart({
             />
           )}
 
+          {/* ========================================================================= */}
+          {/* STRATEGY DRAWINGS (Entry, Stop Loss, Take Profit, Support, Resistance)   */}
+          {/* ========================================================================= */}
+          {drawingLevels.map((lvl, idx) => {
+            const y = getY(lvl.price);
+            if (y < paddingTop - 15 || y > paddingTop + chartHeight + 15) return null;
+            const isEntry = lvl.type === 'ENTRY';
+            const isSL = lvl.type === 'STOP_LOSS';
+            const isTP = lvl.type === 'TAKE_PROFIT';
+            const strokeDash = isEntry ? undefined : isSL ? '4 3' : isTP ? '6 3' : '3 3';
+            const strokeW = isEntry || isSL || isTP ? '2' : '1.5';
+
+            return (
+              <g key={`drawing-${idx}`} className="transition-all">
+                {/* Horizontal Level Line */}
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
+                  stroke={lvl.color}
+                  strokeWidth={strokeW}
+                  strokeDasharray={strokeDash}
+                  opacity={0.9}
+                />
+
+                {/* Left Margin Label Pill */}
+                <rect
+                  x={paddingLeft + 6}
+                  y={y - 9}
+                  width={Math.max(60, lvl.label.length * 6.5 + 12)}
+                  height={18}
+                  fill="#0b0f19"
+                  stroke={lvl.color}
+                  strokeWidth="1.2"
+                  rx="4"
+                  opacity={0.95}
+                />
+                <text
+                  x={paddingLeft + 12}
+                  y={y + 3.5}
+                  fill={lvl.color}
+                  fontSize="9"
+                  fontFamily="monospace"
+                  fontWeight="bold"
+                >
+                  {lvl.label}
+                </text>
+
+                {/* Right Axis Price Badge */}
+                <rect
+                  x={width - paddingRight + 2}
+                  y={y - 9}
+                  width={70}
+                  height={18}
+                  fill={lvl.color}
+                  rx="3"
+                />
+                <text
+                  x={width - paddingRight + 6}
+                  y={y + 3.5}
+                  fill="#ffffff"
+                  fontSize="9"
+                  fontFamily="monospace"
+                  fontWeight="black"
+                >
+                  {lvl.price.toFixed(2)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* ========================================================================= */}
+          {/* LIVE PRICE TICKER LINE & AXIS BADGE                                       */}
+          {/* ========================================================================= */}
+          {currentLivePrice > 0 && (() => {
+            const liveY = getY(currentLivePrice);
+            return (
+              <g className="live-ticker-group">
+                {/* Live horizontal tracker line */}
+                <line
+                  x1={paddingLeft}
+                  y1={liveY}
+                  x2={width - paddingRight}
+                  y2={liveY}
+                  stroke="#a855f7"
+                  strokeWidth="1.5"
+                  strokeDasharray="2 2"
+                />
+
+                {/* Pulse dot on the line at the latest candle */}
+                <circle
+                  cx={paddingLeft + (visibleCandles.length - 1) * candleGap + candleGap / 2}
+                  cy={liveY}
+                  r="4"
+                  fill="#c084fc"
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                />
+
+                {/* Axis badge with live price */}
+                <rect
+                  x={width - paddingRight + 2}
+                  y={liveY - 10}
+                  width={70}
+                  height={20}
+                  fill="#8b5cf6"
+                  rx="4"
+                  stroke="#ffffff"
+                  strokeWidth="1"
+                />
+                <text
+                  x={width - paddingRight + 6}
+                  y={liveY + 3.5}
+                  fill="#ffffff"
+                  fontSize="10"
+                  fontFamily="monospace"
+                  fontWeight="black"
+                >
+                  {currentLivePrice.toFixed(2)}
+                </text>
+              </g>
+            );
+          })()}
+
           {/* Crosshair on hover */}
           {hoverIndex !== null && (
             <g>
@@ -429,7 +623,6 @@ export function CandlestickChart({
             </span>
           </div>
           <svg viewBox={`0 0 ${width} 70`} className="w-full h-16 bg-slate-900/50 rounded">
-            {/* Guide lines: 70 and 30 */}
             <line x1={paddingLeft} y1={21} x2={width - paddingRight} y2={21} stroke="#e11d48" strokeDasharray="3 3" opacity="0.6" />
             <line x1={paddingLeft} y1={49} x2={width - paddingRight} y2={49} stroke="#10b981" strokeDasharray="3 3" opacity="0.6" />
             <polyline
