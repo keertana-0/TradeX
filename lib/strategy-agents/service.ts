@@ -23,13 +23,23 @@ const money = (value: number) => new Prisma.Decimal(value.toFixed(2));
 const roundPrice = (value: number) => Number(value.toFixed(4));
 
 export async function getLatestCompetition(userId: string, marketType: string = 'INDIAN') {
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const competition = await prisma.strategyCompetition.findFirst({
     where: { userId, marketType },
     orderBy: { createdAt: 'desc' },
     include: {
       agents: {
         include: {
-          trades: { where: { status: 'OPEN' }, take: 1, orderBy: { openedAt: 'desc' } },
+          trades: {
+            where: {
+              OR: [
+                { status: 'OPEN' },
+                { openedAt: { gte: twentyFourHoursAgo } },
+                { closedAt: { gte: twentyFourHoursAgo } },
+              ],
+            },
+            orderBy: { openedAt: 'desc' },
+          },
           signals: { take: 5, orderBy: { createdAt: 'desc' } },
         },
       },
@@ -39,7 +49,8 @@ export async function getLatestCompetition(userId: string, marketType: string = 
   const latestPrice = Number(competition.latestPrice || 0);
   const currency = competition.currency || (competition.marketType === 'CRYPTO' ? 'USDT' : 'INR');
   const agents = competition.agents.map((agent) => {
-    const openTrade = agent.trades[0] || null;
+    const openTrade = agent.trades.find((t) => t.status === 'OPEN') || null;
+    const tradesLast24h = agent.trades.filter((t) => (t.openedAt >= twentyFourHoursAgo || (t.closedAt && t.closedAt >= twentyFourHoursAgo)));
     const markedPrice = Number(openTrade?.currentPrice || latestPrice || 0);
     const isLong = !openTrade?.entryReason?.includes('SHORT');
     const unrealizedPnL = openTrade
@@ -55,6 +66,7 @@ export async function getLatestCompetition(userId: string, marketType: string = 
       dailyRealizedPnL: Number(agent.dailyRealizedPnL),
       peakEquity: Number(agent.peakEquity),
       maxDrawdown: Number(agent.maxDrawdown),
+      hasRecentTrades: tradesLast24h.length > 0 || agent.entriesToday > 0 || openTrade !== null,
       openTrade: openTrade ? {
         ...openTrade,
         quantity: openTrade.quantity,
@@ -71,7 +83,10 @@ export async function getLatestCompetition(userId: string, marketType: string = 
     };
   });
   const portfolioLeaderboard = [...agents].sort((a, b) => b.equity - a.equity).map((agent, index) => ({ ...agent, rank: index + 1 }));
-  const dailyProfitLeaderboard = [...agents].sort((a, b) => b.dailyPnL - a.dailyPnL).map((agent, index) => ({ ...agent, rank: index + 1 }));
+  const dailyProfitLeaderboard = [...agents]
+    .filter((agent) => agent.hasRecentTrades)
+    .sort((a, b) => b.dailyPnL - a.dailyPnL)
+    .map((agent, index) => ({ ...agent, rank: index + 1 }));
   return {
     id: competition.id,
     marketType: competition.marketType || 'INDIAN',
