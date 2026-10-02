@@ -24,8 +24,8 @@ export async function GET(
         agents: {
           where: { id: agentId },
           include: {
-            trades: { where: { status: 'OPEN' }, take: 1, orderBy: { openedAt: 'desc' } },
-            signals: { take: 5, orderBy: { createdAt: 'desc' } },
+            trades: { orderBy: { openedAt: 'desc' } },
+            signals: { take: 10, orderBy: { createdAt: 'desc' } },
           },
         },
       },
@@ -38,7 +38,27 @@ export async function GET(
     const agent = competition.agents[0];
     const isCrypto = competition.marketType === 'CRYPTO';
     const currency = agent.currency || (isCrypto ? 'USDT' : 'INR');
-    const openTrade = agent.trades[0] || null;
+    const openTrade = agent.trades.find((t) => t.status === 'OPEN') || null;
+
+    const tradeHistory = agent.trades.map((t) => ({
+      id: t.id,
+      symbol: t.symbol,
+      status: t.status,
+      side: t.entryReason.includes('SHORT') ? 'SHORT' : 'LONG',
+      quantity: t.quantity,
+      entryPrice: Number(t.entryPrice),
+      currentPrice: Number(t.currentPrice),
+      exitPrice: t.exitPrice ? Number(t.exitPrice) : null,
+      stopLossPrice: Number(t.stopLossPrice),
+      takeProfitPrice: Number(t.takeProfitPrice),
+      entryFees: Number(t.entryFees),
+      exitFees: t.exitFees ? Number(t.exitFees) : null,
+      realizedPnL: t.realizedPnL ? Number(t.realizedPnL) : null,
+      entryReason: t.entryReason,
+      exitReason: t.exitReason,
+      openedAt: t.openedAt,
+      closedAt: t.closedAt,
+    }));
 
     let candles: Candle[] = [];
     let currentPrice = Number(competition.latestPrice || 0);
@@ -130,6 +150,7 @@ export async function GET(
         drawingLevels,
         candles,
         assetSymbol,
+        tradeHistory,
       });
     }
 
@@ -170,6 +191,7 @@ export async function GET(
       drawingLevels,
       candles,
       assetSymbol,
+      tradeHistory,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Failed to retrieve agent telemetry.';

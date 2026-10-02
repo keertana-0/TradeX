@@ -112,9 +112,9 @@ export async function createCompetition(userId: string, marketType: string = 'IN
   });
   if (existing) return existing;
 
-  const initialCapital = new Prisma.Decimal(1_000_000);
-  const sessionDate = istDateKey();
   const isCrypto = marketType === 'CRYPTO';
+  const initialCapital = new Prisma.Decimal(isCrypto ? 1_000 : 1_000_000);
+  const sessionDate = istDateKey();
   const currency = isCrypto ? 'USDT' : 'INR';
   const instrumentKey = isCrypto ? 'BTC · ETH · SOL Perpetual & Spot' : 'NIFTY · BANKNIFTY · SENSEX options';
   const status = isCrypto ? 'RUNNING' : 'WAITING_FOR_MARKET';
@@ -317,14 +317,14 @@ async function tickCryptoCompetition(userId: string, competitionId: string) {
         const takeProfitPrice = roundPrice(candidate.side === 'LONG' ? fillPrice * (1 + targetPct) : fillPrice * (1 - targetPct));
 
         const riskBudget = cash * RISK_PER_TRADE;
-        const maxNotional = cash * MAX_EXPOSURE;
+        const maxNotional = Math.min(cash * MAX_EXPOSURE, 250);
         const riskDistance = Math.abs(fillPrice - stopLossPrice);
 
-        const rawUnits = Math.min(maxNotional / fillPrice, riskBudget / riskDistance);
+        const rawUnits = Math.min(maxNotional / fillPrice, riskBudget / (riskDistance || 1));
         let quantity = Math.max(1, Math.floor(rawUnits));
-        if (candidate.market.symbol === 'BTC') quantity = Math.max(1, Math.min(2, Math.floor(rawUnits)));
-        else if (candidate.market.symbol === 'ETH') quantity = Math.max(1, Math.min(50, Math.floor(rawUnits)));
-        else if (candidate.market.symbol === 'SOL') quantity = Math.max(10, Math.min(1000, Math.floor(rawUnits)));
+        if (candidate.market.symbol === 'SOL') quantity = Math.max(1, Math.min(20, Math.floor(rawUnits)));
+        else if (candidate.market.symbol === 'ETH') quantity = Math.max(1, Math.min(2, Math.floor(rawUnits)));
+        else if (candidate.market.symbol === 'BTC') quantity = 1;
 
         const notional = fillPrice * quantity;
         const entryFee = roundPrice(notional * 0.0005);

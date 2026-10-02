@@ -17,6 +17,26 @@ interface DrawingLevel {
   color: string;
 }
 
+interface TradeHistoryItem {
+  id: string;
+  symbol: string;
+  status: 'OPEN' | 'CLOSED';
+  side: 'LONG' | 'SHORT';
+  quantity: number;
+  entryPrice: number;
+  currentPrice: number;
+  exitPrice: number | null;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  entryFees: number;
+  exitFees: number | null;
+  realizedPnL: number | null;
+  entryReason: string;
+  exitReason: string | null;
+  openedAt: string;
+  closedAt: string | null;
+}
+
 interface AgentTelemetryPayload {
   agent: {
     id: string;
@@ -74,6 +94,7 @@ interface AgentTelemetryPayload {
   drawingLevels: DrawingLevel[];
   candles: Candle[];
   assetSymbol: string;
+  tradeHistory?: TradeHistoryItem[];
 }
 
 interface AgentDetailModalProps {
@@ -87,6 +108,7 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [interval, setInterval] = useState<CandleInterval>('5m');
+  const [activeTab, setActiveTab] = useState<'TELEMETRY' | 'HISTORY'>('TELEMETRY');
 
   const fetchTelemetry = async () => {
     try {
@@ -123,6 +145,8 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
     return formatINR(val);
   };
 
+  const tradeHistory = data?.tradeHistory || [];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
       <div 
@@ -130,7 +154,7 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0d1222]">
+        <div className="flex flex-wrap items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0d1222] gap-3">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-400/30 bg-violet-500/10 text-violet-300 shadow-inner">
               <Bot className="h-6 w-6" />
@@ -153,7 +177,35 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
               <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{data?.agent.description}</p>
             </div>
           </div>
+
+          {/* Tab Navigation & Controls */}
           <div className="flex items-center gap-2">
+            <div className="flex rounded-xl bg-black/40 border border-white/10 p-1">
+              <button
+                onClick={() => setActiveTab('TELEMETRY')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                  activeTab === 'TELEMETRY'
+                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Live Telemetry
+              </button>
+              <button
+                onClick={() => setActiveTab('HISTORY')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                  activeTab === 'HISTORY'
+                    ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Trade History
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-black/40 text-cyan-200">
+                  {tradeHistory.length}
+                </span>
+              </button>
+            </div>
+
             <button
               onClick={fetchTelemetry}
               className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
@@ -187,7 +239,105 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
             </div>
           )}
 
-          {data && (
+          {data && activeTab === 'HISTORY' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-cyan-400" />
+                  <h3 className="text-sm font-black uppercase tracking-wider text-white">
+                    Agent Execution Ledger · {tradeHistory.length} Trades Recorded
+                  </h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Paper Allocation: {formatMoney(data.agent.initialCapital)}
+                </span>
+              </div>
+
+              {tradeHistory.length === 0 ? (
+                <div className="py-16 text-center rounded-2xl border border-white/5 bg-[#0e1424] text-slate-400">
+                  <ShieldCheck className="mx-auto h-10 w-10 text-slate-600 mb-2" />
+                  <p className="text-sm font-bold text-slate-300">No Historical Trades Yet</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    This strategy agent evaluates live 5-minute candles. Once a high-confidence entry condition is met, executed trades will appear here with full execution timestamps, fill price, SL/TP levels, and realized P&L.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tradeHistory.map((trade) => {
+                    const isWin = (trade.realizedPnL || 0) >= 0;
+                    return (
+                      <div 
+                        key={trade.id}
+                        className="rounded-2xl border border-white/[0.08] bg-[#0e1424] p-4 space-y-3 transition-all hover:border-cyan-500/30"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                              trade.side === 'LONG' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                            }`}>
+                              {trade.side}
+                            </span>
+                            <strong className="text-sm font-bold text-white font-mono">{trade.symbol}</strong>
+                            <span className="text-xs text-slate-400 font-mono">{trade.quantity} units</span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              trade.status === 'OPEN' 
+                                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 animate-pulse'
+                                : 'bg-slate-800 text-slate-400 border border-slate-700'
+                            }`}>
+                              {trade.status === 'OPEN' ? 'ACTIVE POSITION' : 'CLOSED'}
+                            </span>
+                            {trade.realizedPnL !== null && (
+                              <strong className={`font-mono text-sm font-black ${isWin ? 'text-emerald-300' : 'text-rose-400'}`}>
+                                {trade.realizedPnL >= 0 ? '+' : ''}{formatMoney(trade.realizedPnL)}
+                              </strong>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Trade Details Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                          <div className="p-2 rounded-lg bg-black/30 border border-white/5">
+                            <span className="text-[9px] text-slate-500 uppercase block font-sans">Entry Price</span>
+                            <span className="text-slate-200 font-bold">{formatMoney(trade.entryPrice)}</span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-black/30 border border-white/5">
+                            <span className="text-[9px] text-slate-500 uppercase block font-sans">{trade.status === 'OPEN' ? 'Current Price' : 'Exit Price'}</span>
+                            <span className="text-slate-200 font-bold">{formatMoney(trade.status === 'OPEN' ? trade.currentPrice : (trade.exitPrice || trade.currentPrice))}</span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-black/30 border border-white/5">
+                            <span className="text-[9px] text-rose-400/80 uppercase block font-sans">Stop Loss</span>
+                            <span className="text-rose-300 font-bold">{formatMoney(trade.stopLossPrice)}</span>
+                          </div>
+                          <div className="p-2 rounded-lg bg-black/30 border border-white/5">
+                            <span className="text-[9px] text-emerald-400/80 uppercase block font-sans">Take Profit</span>
+                            <span className="text-emerald-300 font-bold">{formatMoney(trade.takeProfitPrice)}</span>
+                          </div>
+                        </div>
+
+                        {/* Trade Rationale & Timestamps */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-2 pt-1 border-t border-white/[0.04]">
+                          <div className="line-clamp-1 italic text-slate-300">
+                            <strong>Reason:</strong> {trade.exitReason || trade.entryReason}
+                          </div>
+                          <div className="text-[10px] text-slate-500 shrink-0 font-mono">
+                            Opened: {new Date(trade.openedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                            {trade.closedAt && (
+                              <span> · Closed: {new Date(trade.closedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {data && activeTab === 'TELEMETRY' && (
             <>
               {/* Telemetry Overview Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -196,7 +346,9 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                   <strong className="text-sm sm:text-base font-extrabold text-white mt-1 block font-mono">
                     {formatMoney(data.agent.initialCapital)}
                   </strong>
-                  <span className="text-[10px] text-slate-500">Isolated 10 Lakh {currency}</span>
+                  <span className="text-[10px] text-slate-500">
+                    {currency === 'USDT' ? '1,000 USDT Base' : 'Isolated 10 Lakh INR'}
+                  </span>
                 </div>
 
                 <div className="p-3.5 rounded-2xl border border-white/[0.06] bg-[#0f1527]">

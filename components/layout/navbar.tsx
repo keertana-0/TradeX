@@ -82,7 +82,7 @@ export function Navbar() {
 
           {/* Market Status Pill */}
           {marketStatus && (
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border bg-slate-900 border-slate-800">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border bg-slate-900 border-slate-800 neon-pulse">
               <span
                 className={`w-2 h-2 rounded-full ${
                   marketStatus.isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
