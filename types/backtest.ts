@@ -15,6 +15,9 @@ export interface BacktestConfig {
   exitTime?: string;
   strikeCount?: number;
   initialPerSideInvestment?: number;
+  tradingDays?: number[];
+  backtestFrom?: string;
+  backtestTo?: string;
 }
 
 export interface BacktestTrade {
@@ -26,10 +29,17 @@ export interface BacktestTrade {
   optionType: 'CE' | 'PE';
   entryPrice: number;
   exitPrice: number;
+  allocatedBudget?: number;
+  investedAmount?: number;
+  grossPnl?: number;
+  charges?: number;
   pnl: number;
   returnPct: number;
   regime: string;
   reason: string;
+  lotSize?: number;
+  lots?: number;
+  quantity?: number;
 }
 
 export interface BacktestMetrics {
@@ -70,10 +80,26 @@ export interface BacktestResult {
     finalPerSideInvestment: number;
     totalReinvested: number;
   };
+  dataSource?: string;
+  dataGranularity?: 'daily' | 'intraday';
+  coverage?: {
+    requestedFrom: string;
+    requestedTo: string;
+    observedSessions: number;
+    failedDateCount: number;
+    failedDates: string[];
+  };
+  dataQuality?: {
+    rawCandidateRows: number;
+    acceptedRows: number;
+    rejectedRows: number;
+    rejectionCounts: Record<string, number>;
+  };
 }
 
 export interface BacktestDailyResult {
   date: string;
+  note?: string;
   pnl: number;
   cePnl: number;
   pePnl: number;

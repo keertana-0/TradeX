@@ -5,6 +5,7 @@ Flask backend API with REST endpoints and WebSocket for live updates.
 import logging
 import os
 import sys
+import hmac
 import threading
 import time
 import traceback
@@ -24,6 +25,7 @@ from regime_detection import detect_regime, RegimeResult
 from options_analysis import analyze_options, OptionsSignal
 from paper_trading import PaperTrader
 from backtesting import BacktestConfig, run_backtest
+from data_providers.historical_options_provider import HistoricalOptionsDataError, JugaadHistoricalOptionsProvider
 
 # ── Logging Setup ──────────────────────────────────────────────
 os.makedirs("logs", exist_ok=True)
@@ -344,6 +346,28 @@ def api_backtest(symbol):
     except Exception as exc:
         logger.error("Backtest error for %s: %s", symbol, traceback.format_exc())
         return jsonify({"status": "ERROR", "message": str(exc), "metrics": {}, "trades": []}), 500
+
+
+@app.route("/api/backtest/daily-options/<symbol>")
+def api_daily_backtest_options(symbol):
+    """Return normalized daily index-option contracts from the listing exchange."""
+    expected_token = os.getenv("JUGAAD_HISTORICAL_API_TOKEN", "")
+    if expected_token and not hmac.compare_digest(
+        request.headers.get("Authorization", ""), f"Bearer {expected_token}"
+    ):
+        return jsonify({"error": "Unauthorized historical options service request."}), 401
+    from_date = request.args.get("from", "")
+    to_date = request.args.get("to", "")
+    try:
+        dataset = JugaadHistoricalOptionsProvider().get_data(symbol, from_date, to_date)
+        return jsonify(dataset)
+    except HistoricalOptionsDataError as exc:
+        message = str(exc)
+        status = 502 if "Jugaad/NSE historical requests failed" in message else 422
+        return jsonify({"error": message}), status
+    except Exception as exc:
+        logger.exception("Daily historical options request failed for %s", symbol)
+        return jsonify({"error": f"Could not load historical exchange options: {exc}"}), 502
 
 
 # ── WebSocket Events ──────────────────────────────────────────

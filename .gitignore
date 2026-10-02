@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+.npm-cache/
+.cache/
 
 # Next.js build
 .next/
@@ -44,3 +46,4 @@ coverage/
 __pycache__/
 *.py[cod]
 logs/
+runtime-logs/

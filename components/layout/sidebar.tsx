@@ -14,7 +14,9 @@ import {
   BarChart2,
   Compass,
   BarChart3,
-  Zap
+  Zap,
+  Database,
+  Bot,
 } from 'lucide-react';
 import { UserRole } from '@/types/user';
 
@@ -32,6 +34,8 @@ export function Sidebar({ userRole }: SidebarProps) {
     { label: 'Market Regime', href: '/regime', icon: Compass },
     { label: 'Expert Picks', href: '/expert-picks', icon: Zap },
     { label: 'Backtest Engine', href: '/backtest', icon: BarChart3 },
+    { label: 'Historical Explorer', href: '/historical', icon: Database },
+    { label: 'Strategy Agent Arena', href: '/strategy-agents', icon: Bot },
     { label: 'Portfolio & P&L', href: '/portfolio', icon: Briefcase },
     { label: 'Orders & Trades', href: '/orders', icon: ListOrdered },
     { label: 'Watchlist', href: '/watchlist', icon: Bookmark },

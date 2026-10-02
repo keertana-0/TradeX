@@ -26,6 +26,8 @@ export async function GET() {
       role: dbUser.role,
       balance: dbUser.virtualAccount ? Number(dbUser.virtualAccount.balance) : 0,
       reservedBalance: dbUser.virtualAccount ? Number(dbUser.virtualAccount.reservedBalance) : 0,
+      cryptoBalance: dbUser.virtualAccount ? Number(dbUser.virtualAccount.cryptoBalance ?? 1000000) : 1000000,
+      cryptoReservedBalance: dbUser.virtualAccount ? Number(dbUser.virtualAccount.cryptoReservedBalance ?? 0) : 0,
     },
   });
 }

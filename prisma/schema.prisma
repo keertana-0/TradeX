@@ -54,6 +54,28 @@ enum InstrumentType {
   OPTION
 }
 
+enum StrategyCompetitionStatus {
+  WAITING_FOR_MARKET
+  WAITING_FOR_LIVE_DATA
+  RUNNING
+  STOPPED
+}
+
+enum StrategySignalAction {
+  BUY
+  SELL
+  HOLD
+  LONG
+  SHORT
+  EXIT
+  NO_TRADE
+}
+
+enum StrategyTradeStatus {
+  OPEN
+  CLOSED
+}
+
 model User {
   id            String             @id @default(uuid())
   email         String             @unique
@@ -75,6 +97,7 @@ model User {
   holdings          Holding[]
   snapshots         PortfolioSnapshot[]
   auditLogs         AuditLog[]
+  strategyCompetitions StrategyCompetition[]
 
   @@map("users")
 }
@@ -95,10 +118,13 @@ model Session {
 model VirtualAccount {
   id              String            @id @default(uuid())
   userId          String            @unique
-  currency        String            @default("INR")
-  balance         Decimal           @default(1000000.00) @db.Decimal(18, 2)
-  reservedBalance Decimal           @default(0.00) @db.Decimal(18, 2)
-  createdAt       DateTime          @default(now())
+  currency              String            @default("INR")
+  balance               Decimal           @default(1000000.00) @db.Decimal(18, 2)
+  reservedBalance       Decimal           @default(0.00) @db.Decimal(18, 2)
+  cryptoCurrency        String            @default("USDT")
+  cryptoBalance         Decimal           @default(1000000.00) @db.Decimal(18, 2)
+  cryptoReservedBalance Decimal           @default(0.00) @db.Decimal(18, 2)
+  createdAt             DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -284,4 +310,122 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model StrategyCompetition {
+  id                    String                    @id @default(uuid())
+  userId                String
+  marketType            String                    @default("INDIAN")
+  currency              String                    @default("INR")
+  status                StrategyCompetitionStatus @default(WAITING_FOR_MARKET)
+  instrumentKey         String                    @default("^NSEI")
+  initialCapital        Decimal                   @default(1000000.00) @db.Decimal(18, 2)
+  latestPrice           Decimal?                  @db.Decimal(18, 4)
+  latestPriceAt         DateTime?
+  lastProcessedBarAt    DateTime?
+  lastTickAt            DateTime?
+  tickLeaseUntil        DateTime?
+  lastError             String?
+  startedAt             DateTime                  @default(now())
+  stoppedAt             DateTime?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+
+  user                  User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agents                StrategyAgent[]
+
+  @@index([userId, status])
+  @@index([userId, marketType, status])
+  @@index([createdAt])
+  @@map("strategy_competitions")
+}
+
+model StrategyAgent {
+  id                    String              @id @default(uuid())
+  competitionId         String
+  key                   String
+  name                  String
+  description           String
+  currency              String              @default("INR")
+  initialCapital        Decimal             @db.Decimal(18, 2)
+  cashBalance           Decimal             @db.Decimal(18, 2)
+  realizedPnL           Decimal             @default(0.00) @db.Decimal(18, 2)
+  dailyRealizedPnL      Decimal             @default(0.00) @db.Decimal(18, 2)
+  peakEquity            Decimal             @db.Decimal(18, 2)
+  maxDrawdown           Decimal             @default(0.00) @db.Decimal(18, 2)
+  entriesToday          Int                 @default(0)
+  sessionDate           String
+  isPaused              Boolean             @default(false)
+  lastAction            StrategySignalAction @default(HOLD)
+  lastReason            String              @default("Waiting for fresh live market data.")
+  lastSignalAt          DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  competition           StrategyCompetition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  trades                StrategyTrade[]
+  signals               StrategySignal[]
+  snapshots             StrategyAgentSnapshot[]
+
+  @@unique([competitionId, key])
+  @@index([competitionId])
+  @@map("strategy_agents")
+}
+
+model StrategyTrade {
+  id                    String              @id @default(uuid())
+  agentId               String
+  symbol                String              @default("NIFTY50")
+  status                StrategyTradeStatus @default(OPEN)
+  quantity              Int
+  entryPrice            Decimal             @db.Decimal(18, 4)
+  currentPrice          Decimal             @db.Decimal(18, 4)
+  stopLossPrice         Decimal             @db.Decimal(18, 4)
+  takeProfitPrice       Decimal             @db.Decimal(18, 4)
+  entryFees             Decimal             @default(20.00) @db.Decimal(18, 2)
+  exitPrice             Decimal?            @db.Decimal(18, 4)
+  exitFees              Decimal?            @db.Decimal(18, 2)
+  realizedPnL           Decimal?            @db.Decimal(18, 2)
+  entryReason           String
+  exitReason            String?
+  openedAt              DateTime            @default(now())
+  closedAt              DateTime?
+  updatedAt             DateTime            @updatedAt
+
+  agent                 StrategyAgent       @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, status])
+  @@index([openedAt])
+  @@index([closedAt])
+  @@map("strategy_trades")
+}
+
+model StrategySignal {
+  id                    String               @id @default(uuid())
+  agentId               String
+  action                StrategySignalAction
+  reason                String
+  referencePrice        Decimal              @db.Decimal(18, 4)
+  output                Json?
+  createdAt             DateTime             @default(now())
+
+  agent                 StrategyAgent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, createdAt])
+  @@map("strategy_signals")
+}
+
+model StrategyAgentSnapshot {
+  id                    String         @id @default(uuid())
+  agentId               String
+  equity                Decimal        @db.Decimal(18, 2)
+  cashBalance           Decimal        @db.Decimal(18, 2)
+  totalPnL               Decimal        @db.Decimal(18, 2)
+  dailyPnL               Decimal        @db.Decimal(18, 2)
+  recordedAt             DateTime       @default(now())
+
+  agent                  StrategyAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, recordedAt])
+  @@map("strategy_agent_snapshots")
 }

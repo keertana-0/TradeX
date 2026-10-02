@@ -9,7 +9,7 @@ import { MarketStatus, Quote } from '@/types/market';
 
 export function Navbar() {
   const router = useRouter();
-  const [user, setUser] = useState<{ displayName: string; role: string; balance: number } | null>(null);
+  const [user, setUser] = useState<{ displayName: string; role: string; balance: number; cryptoBalance?: number } | null>(null);
   const [marketStatus, setMarketStatus] = useState<MarketStatus | null>(null);
   const [indices, setIndices] = useState<Quote[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,13 +143,24 @@ export function Navbar() {
         {/* Right Section: Virtual Cash & User Menu */}
         <div className="flex items-center gap-4">
           {user && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
-              <Wallet className="w-4 h-4 text-emerald-400" />
-              <div>
-                <span className="text-[10px] text-slate-400 block leading-none">Virtual Cash</span>
-                <span className="text-sm font-semibold text-emerald-400 font-mono">
-                  {formatINR(user.balance)}
-                </span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800" title="Indian Market Paper Wallet (INR)">
+                <span className="text-xs">🇮🇳</span>
+                <div>
+                  <span className="text-[9px] text-slate-400 block leading-none font-bold uppercase tracking-wider">INR Wallet</span>
+                  <span className="text-xs font-semibold text-emerald-400 font-mono">
+                    {formatINR(user.balance)}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800" title="Crypto 24/7 Paper Wallet (USDT)">
+                <span className="text-xs">🌐</span>
+                <div>
+                  <span className="text-[9px] text-cyan-400 block leading-none font-bold uppercase tracking-wider">USDT Wallet</span>
+                  <span className="text-xs font-semibold text-cyan-300 font-mono">
+                    ${Number(user.cryptoBalance ?? 1000000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+                  </span>
+                </div>
               </div>
             </div>
           )}

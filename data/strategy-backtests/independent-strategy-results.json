@@ -1,0 +1,778 @@
+{
+  "generatedAt": "2026-09-29T19:55:46.142Z",
+  "data": {
+    "symbol": "NIFTY 50",
+    "firstTimestamp": "2014-03-04T03:50:00.000Z",
+    "lastTimestamp": "2026-06-30T09:55:00.000Z",
+    "tradingDays": 419,
+    "candles": 31083
+  },
+  "methodology": {
+    "split": "Chronological trading days: 60% training, 20% validation, 20% testing.",
+    "usesParameterFitting": false,
+    "execution": "Hypothetical index spot units; signal at completed candle close, fill at next candle open.",
+    "entryGate": "All strategies require confidence >= 55% and entries are allowed from 09:20 IST.",
+    "fees": "20 INR each side",
+    "slippage": "0.05% each side",
+    "positionSizing": "0.5% of current equity risk and 20% maximum notional exposure; profits compound.",
+    "ambiguity": "If stop and target both occur in one candle, stop is assumed first. Positions flatten at each session end.",
+    "limitation": "This is not an options backtest. Premium, implied volatility, option bid/ask spread, lot size, expiry and Greeks are not modeled."
+  },
+  "config": {
+    "swingLookback": 10,
+    "atrPeriod": 14,
+    "atrStopMultiple": 1.5,
+    "rewardRisk": 2,
+    "emaFast": 20,
+    "emaSlow": 50,
+    "emaTrend": 200,
+    "adxPeriod": 14,
+    "adxMinimum": 25,
+    "rsiPeriod": 14,
+    "rsiOversold": 30,
+    "rsiOverbought": 70,
+    "rangeLookback": 20,
+    "volumeLookback": 20,
+    "volumeMultiplier": 1.2,
+    "bollingerPeriod": 20,
+    "bollingerDeviation": 2,
+    "openingRangeMinutes": 15,
+    "vwapCrossLimit": 4,
+    "pairsLookback": 60,
+    "pairsZEntry": 2,
+    "pairsZExit": 0.5,
+    "minCorrelation": 0.7,
+    "timeframeMinutes": 5,
+    "displacementBodyFraction": 0.65,
+    "structureLookback": 8,
+    "wyckoffTrendLookback": 20,
+    "trendRsiLong": 55,
+    "trendRsiShort": 45,
+    "trendExitAdx": 20,
+    "vwapSlopeMinimumPct": 0.00005,
+    "vwapRetestTolerancePct": 0.001,
+    "vwapRepeatedCrossCount": 4,
+    "openingHour": 9,
+    "openingMinute": 15,
+    "breakoutRetestTolerancePct": 0.001,
+    "momentumRocBars": 5,
+    "orderFlowDeltaMultiplier": 1,
+    "minimumSetupCandles": 3,
+    "breakoutRetestBars": 3,
+    "momentumRsiLong": 55,
+    "momentumRsiShort": 45,
+    "wyckoffTargetExtensionPct": 0.005,
+    "stopFloorPct": 0.0005,
+    "vwapMinimumSessionCandles": 3
+  },
+  "strategies": [
+    {
+      "strategy": "ICT / Smart Money Concepts",
+      "key": "ict_smc",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 50,
+            "profitFactor": 12.579,
+            "totalReturnPct": 0.066,
+            "maxDrawdownPct": 0.006,
+            "averageR": 0.272,
+            "sharpeRatio": 0.921,
+            "numberOfTrades": 2,
+            "averageHoldingMinutes": 177.5,
+            "netProfit": 664.93,
+            "grossProfit": 722.36,
+            "grossLoss": 57.43,
+            "feesAndSlippage": 468.18
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 31080,
+        "LONG": 1,
+        "SHORT": 1
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Wyckoff Spring / Upthrust",
+      "key": "wyckoff",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 11.11,
+            "profitFactor": 0.068,
+            "totalReturnPct": -0.231,
+            "maxDrawdownPct": 0.231,
+            "averageR": -0.69,
+            "sharpeRatio": -2.095,
+            "numberOfTrades": 9,
+            "averageHoldingMinutes": 11.7,
+            "netProfit": -2308.3,
+            "grossProfit": 169.21,
+            "grossLoss": 2477.51,
+            "feesAndSlippage": 2116.76
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 31069,
+        "SHORT": 6,
+        "LONG": 3,
+        "EXIT": 4
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Trend Following",
+      "key": "trend_following",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 17.62,
+            "profitFactor": 0.224,
+            "totalReturnPct": -5.63,
+            "maxDrawdownPct": 5.688,
+            "averageR": -0.456,
+            "sharpeRatio": -8.597,
+            "numberOfTrades": 244,
+            "averageHoldingMinutes": 30.7,
+            "netProfit": -56302.81,
+            "grossProfit": 16229.45,
+            "grossLoss": 72532.26,
+            "feesAndSlippage": 55695.49
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 23.66,
+            "profitFactor": 0.337,
+            "totalReturnPct": -1.921,
+            "maxDrawdownPct": 1.921,
+            "averageR": -0.314,
+            "sharpeRatio": -5.471,
+            "numberOfTrades": 93,
+            "averageHoldingMinutes": 32.3,
+            "netProfit": -18131.64,
+            "grossProfit": 9210.99,
+            "grossLoss": 27342.63,
+            "feesAndSlippage": 20122.35
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 11.54,
+            "profitFactor": 0.147,
+            "totalReturnPct": -1.915,
+            "maxDrawdownPct": 1.915,
+            "averageR": -0.496,
+            "sharpeRatio": -8.58,
+            "numberOfTrades": 78,
+            "averageHoldingMinutes": 30.6,
+            "netProfit": -17724.34,
+            "grossProfit": 3058.39,
+            "grossLoss": 20782.73,
+            "feesAndSlippage": 16611.14
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 30371,
+        "LONG": 231,
+        "EXIT": 294,
+        "SHORT": 186
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Breakout and Retest",
+      "key": "breakout_retest",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 26.5,
+            "profitFactor": 0.403,
+            "totalReturnPct": -7.703,
+            "maxDrawdownPct": 7.888,
+            "averageR": -0.411,
+            "sharpeRatio": -7.093,
+            "numberOfTrades": 400,
+            "averageHoldingMinutes": 57.2,
+            "netProfit": -77032.89,
+            "grossProfit": 52097.92,
+            "grossLoss": 129130.81,
+            "feesAndSlippage": 90947.08
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 27.01,
+            "profitFactor": 0.436,
+            "totalReturnPct": -4.179,
+            "maxDrawdownPct": 4.321,
+            "averageR": -0.398,
+            "sharpeRatio": -8.659,
+            "numberOfTrades": 211,
+            "averageHoldingMinutes": 55.7,
+            "netProfit": -38570.33,
+            "grossProfit": 29820.58,
+            "grossLoss": 68390.91,
+            "feesAndSlippage": 44521.37
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 26.2,
+            "profitFactor": 0.363,
+            "totalReturnPct": -3.72,
+            "maxDrawdownPct": 3.738,
+            "averageR": -0.433,
+            "sharpeRatio": -11.477,
+            "numberOfTrades": 187,
+            "averageHoldingMinutes": 65.2,
+            "netProfit": -32901.15,
+            "grossProfit": 18750.55,
+            "grossLoss": 51651.71,
+            "feesAndSlippage": 38205.43
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 30277,
+        "LONG": 408,
+        "SHORT": 397
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Mean Reversion",
+      "key": "mean_reversion",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 10,
+            "profitFactor": 0.101,
+            "totalReturnPct": -0.461,
+            "maxDrawdownPct": 0.479,
+            "averageR": -0.798,
+            "sharpeRatio": -3.262,
+            "numberOfTrades": 20,
+            "averageHoldingMinutes": 9.3,
+            "netProfit": -4614.02,
+            "grossProfit": 521,
+            "grossLoss": 5135.02,
+            "feesAndSlippage": 4678.88
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 37.5,
+            "profitFactor": 0.19,
+            "totalReturnPct": -0.189,
+            "maxDrawdownPct": 0.197,
+            "averageR": -0.541,
+            "sharpeRatio": -2.786,
+            "numberOfTrades": 8,
+            "averageHoldingMinutes": 23.8,
+            "netProfit": -1876.35,
+            "grossProfit": 441.16,
+            "grossLoss": 2317.51,
+            "feesAndSlippage": 1840.01
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 40,
+            "profitFactor": 0.589,
+            "totalReturnPct": -0.08,
+            "maxDrawdownPct": 0.125,
+            "averageR": -0.197,
+            "sharpeRatio": -0.73,
+            "numberOfTrades": 10,
+            "averageHoldingMinutes": 30.5,
+            "netProfit": -794.78,
+            "grossProfit": 1140.97,
+            "grossLoss": 1935.75,
+            "feesAndSlippage": 2291.06
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 31043,
+        "LONG": 22,
+        "SHORT": 17
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Session VWAP",
+      "key": "vwap",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 27.67,
+            "profitFactor": 0.499,
+            "totalReturnPct": -9.193,
+            "maxDrawdownPct": 9.447,
+            "averageR": -0.371,
+            "sharpeRatio": -6.555,
+            "numberOfTrades": 477,
+            "averageHoldingMinutes": 108.1,
+            "netProfit": -91928.45,
+            "grossProfit": 91417.16,
+            "grossLoss": 183345.61,
+            "feesAndSlippage": 108473.69
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 32.48,
+            "profitFactor": 0.549,
+            "totalReturnPct": -3.118,
+            "maxDrawdownPct": 3.346,
+            "averageR": -0.295,
+            "sharpeRatio": -4.818,
+            "numberOfTrades": 157,
+            "averageHoldingMinutes": 111.7,
+            "netProfit": -28310.26,
+            "grossProfit": 34453.44,
+            "grossLoss": 62763.69,
+            "feesAndSlippage": 32971.1
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 25.9,
+            "profitFactor": 0.391,
+            "totalReturnPct": -3.491,
+            "maxDrawdownPct": 3.552,
+            "averageR": -0.436,
+            "sharpeRatio": -8.135,
+            "numberOfTrades": 139,
+            "averageHoldingMinutes": 131,
+            "netProfit": -30713.45,
+            "grossProfit": 19723.11,
+            "grossLoss": 50436.56,
+            "feesAndSlippage": 28326.85
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 30307,
+        "LONG": 381,
+        "SHORT": 394
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Opening Range Breakout",
+      "key": "opening_range",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 10.91,
+            "profitFactor": 0.158,
+            "totalReturnPct": -14.761,
+            "maxDrawdownPct": 14.761,
+            "averageR": -0.78,
+            "sharpeRatio": -8.456,
+            "numberOfTrades": 706,
+            "averageHoldingMinutes": 17.6,
+            "netProfit": -147606.79,
+            "grossProfit": 27601.08,
+            "grossLoss": 175207.87,
+            "feesAndSlippage": 153893.31
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 15.1,
+            "profitFactor": 0.257,
+            "totalReturnPct": -11.528,
+            "maxDrawdownPct": 11.535,
+            "averageR": -0.705,
+            "sharpeRatio": -14.118,
+            "numberOfTrades": 576,
+            "averageHoldingMinutes": 24.8,
+            "netProfit": -98262.22,
+            "grossProfit": 33909.09,
+            "grossLoss": 132171.31,
+            "feesAndSlippage": 111408.8
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 8.65,
+            "profitFactor": 0.103,
+            "totalReturnPct": -13.561,
+            "maxDrawdownPct": 13.561,
+            "averageR": -0.822,
+            "sharpeRatio": -24.874,
+            "numberOfTrades": 613,
+            "averageHoldingMinutes": 19.1,
+            "netProfit": -102270.44,
+            "grossProfit": 11733.7,
+            "grossLoss": 114004.14,
+            "feesAndSlippage": 102619.33
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 29172,
+        "SHORT": 927,
+        "LONG": 983
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Momentum",
+      "key": "momentum",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 27.91,
+            "profitFactor": 0.297,
+            "totalReturnPct": -1.214,
+            "maxDrawdownPct": 1.312,
+            "averageR": -0.372,
+            "sharpeRatio": -2.419,
+            "numberOfTrades": 43,
+            "averageHoldingMinutes": 158.7,
+            "netProfit": -12139.11,
+            "grossProfit": 5140.26,
+            "grossLoss": 17279.37,
+            "feesAndSlippage": 10005.78
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 31039,
+        "LONG": 26,
+        "SHORT": 17
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Order Flow / Volume Delta",
+      "key": "order_flow",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 31082
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    },
+    {
+      "strategy": "Statistical Mean Reversion / Pairs",
+      "key": "statistical_pairs",
+      "timeframeMinutes": 5,
+      "dataScope": "NIFTY_SPOT_PROXY",
+      "periods": {
+        "training": {
+          "from": "2014-03-04",
+          "to": "2021-03-22",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "validation": {
+          "from": "2021-03-23",
+          "to": "2023-01-09",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        },
+        "testing": {
+          "from": "2023-01-10",
+          "to": "2026-06-30",
+          "metrics": {
+            "winRate": 0,
+            "profitFactor": null,
+            "totalReturnPct": 0,
+            "maxDrawdownPct": 0,
+            "averageR": 0,
+            "sharpeRatio": 0,
+            "numberOfTrades": 0,
+            "averageHoldingMinutes": 0,
+            "netProfit": 0,
+            "grossProfit": 0,
+            "grossLoss": 0,
+            "feesAndSlippage": 0
+          }
+        }
+      },
+      "signalCounts": {
+        "NO_TRADE": 31082
+      },
+      "notes": [
+        "Rule thresholds are fixed before validation/testing; no profitability claim is inferred from the training period.",
+        "Underlying direction is only a proxy for option strategy outcomes."
+      ]
+    }
+  ]
+}
