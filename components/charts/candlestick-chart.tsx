@@ -23,7 +23,10 @@ interface CandlestickChartProps {
   onIntervalChange: (interval: CandleInterval) => void;
   isLoading?: boolean;
   drawingLevels?: ChartDrawingLevel[];
+  candlesByInterval?: Partial<Record<CandleInterval, Candle[]>>;
   livePrice?: number;
+  livePriceIsStale?: boolean;
+  dataStatus?: string;
   currency?: string;
 }
 
@@ -34,7 +37,10 @@ export function CandlestickChart({
   onIntervalChange,
   isLoading,
   drawingLevels = [],
+  candlesByInterval,
   livePrice,
+  livePriceIsStale = false,
+  dataStatus,
   currency,
 }: CandlestickChartProps) {
   // Indicator toggles
@@ -48,15 +54,19 @@ export function CandlestickChart({
   // Hover state for crosshair
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  const intervals: CandleInterval[] = ['1m', '5m', '15m', '1h', '1D', '1W'];
+  const intervals: CandleInterval[] = ['5m', '15m', '30m', '1h', '1D', '1W'];
+  const availableIntervals = candlesByInterval
+    ? intervals.filter((value) => (candlesByInterval[value]?.length || 0) > 0)
+    : intervals;
+  const chartCandles = candlesByInterval?.[interval] ?? candles;
 
   // Calculate indicator overlays
-  const ema20 = useMemo(() => calculateEMA(candles, 20), [candles]);
-  const ema50 = useMemo(() => calculateEMA(candles, 50), [candles]);
-  const supertrend = useMemo(() => calculateSupertrend(candles, 10, 3), [candles]);
-  const bollinger = useMemo(() => calculateBollingerBands(candles, 20, 2), [candles]);
-  const rsi = useMemo(() => calculateRSI(candles, 14), [candles]);
-  const macd = useMemo(() => calculateMACD(candles, 12, 26, 9), [candles]);
+  const ema20 = useMemo(() => calculateEMA(chartCandles, 20), [chartCandles]);
+  const ema50 = useMemo(() => calculateEMA(chartCandles, 50), [chartCandles]);
+  const supertrend = useMemo(() => calculateSupertrend(chartCandles, 10, 3), [chartCandles]);
+  const bollinger = useMemo(() => calculateBollingerBands(chartCandles, 20, 2), [chartCandles]);
+  const rsi = useMemo(() => calculateRSI(chartCandles, 14), [chartCandles]);
+  const macd = useMemo(() => calculateMACD(chartCandles, 12, 26, 9), [chartCandles]);
 
   // SVG Chart Dimensions
   const width = 850;
@@ -69,8 +79,8 @@ export function CandlestickChart({
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  const visibleCandles = candles.slice(-50); // Show last 50 candles for clean display
-  const offset = Math.max(0, candles.length - 50);
+  const visibleCandles = chartCandles.slice(-50); // Show last 50 candles for clean display
+  const offset = Math.max(0, chartCandles.length - 50);
 
   // Price range calculation with inclusion of drawing levels and live price
   const { minPrice, maxPrice, maxVolume } = useMemo(() => {
@@ -117,7 +127,7 @@ export function CandlestickChart({
   };
 
   const activeCandle = hoverIndex !== null ? visibleCandles[hoverIndex] : visibleCandles[visibleCandles.length - 1];
-  const activeActualIdx = hoverIndex !== null ? offset + hoverIndex : candles.length - 1;
+  const activeActualIdx = hoverIndex !== null ? offset + hoverIndex : chartCandles.length - 1;
   const currentLivePrice = livePrice || activeCandle?.close || 0;
 
   return (
@@ -127,13 +137,13 @@ export function CandlestickChart({
         {/* Live Asset Price Ticker */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
+            <span className={`h-2.5 w-2.5 rounded-full ${livePriceIsStale ? 'bg-amber-400' : 'bg-emerald-400 animate-ping'}`} />
             <span className="font-extrabold text-white text-base tracking-wide font-mono">
               {symbol}
             </span>
           </div>
           <div className="flex items-baseline gap-2 bg-slate-900 border border-slate-800 px-3 py-1 rounded-lg">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">LIVE</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${livePriceIsStale ? 'text-amber-300' : 'text-slate-400'}`}>{livePriceIsStale ? 'LAST KNOWN' : 'LIVE'}</span>
             <span className="text-base font-black text-emerald-300 font-mono">
               {currency === 'USDT' || symbol.includes('USDT') || symbol.includes('BTC') || symbol.includes('ETH') || symbol.includes('SOL')
                 ? `$${currentLivePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -144,7 +154,7 @@ export function CandlestickChart({
 
         {/* Interval Selector */}
         <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
-          {intervals.map((int) => (
+          {availableIntervals.map((int) => (
             <button
               key={int}
               onClick={() => onIntervalChange(int)}
@@ -272,7 +282,11 @@ export function CandlestickChart({
           </div>
         )}
 
-        <svg
+        {visibleCandles.length === 0 ? (
+          <div className="flex h-72 items-center justify-center bg-slate-950/60 px-6 text-center text-sm text-amber-200">
+            {dataStatus || 'No candle history is available yet. Waiting for the selected market feed.'}
+          </div>
+        ) : <svg
           viewBox={`0 0 ${width} ${height}`}
           className="w-full h-auto cursor-crosshair"
           onMouseLeave={() => setHoverIndex(null)}
@@ -610,7 +624,7 @@ export function CandlestickChart({
               />
             </g>
           )}
-        </svg>
+        </svg>}
       </div>
 
       {/* Subpanel: RSI Oscillator */}

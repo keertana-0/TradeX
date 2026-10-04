@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T19:55:46.142Z",
+  "generatedAt": "2026-10-02T21:05:16.905Z",
   "data": {
     "symbol": "NIFTY 50",
     "firstTimestamp": "2014-03-04T03:50:00.000Z",
@@ -11,7 +11,7 @@
     "split": "Chronological trading days: 60% training, 20% validation, 20% testing.",
     "usesParameterFitting": false,
     "execution": "Hypothetical index spot units; signal at completed candle close, fill at next candle open.",
-    "entryGate": "All strategies require confidence >= 55% and entries are allowed from 09:20 IST.",
+    "entryGate": "All strategies require confidence >= 65% and entries are allowed from 09:20 IST.",
     "fees": "20 INR each side",
     "slippage": "0.05% each side",
     "positionSizing": "0.5% of current equity risk and 20% maximum notional exposure; profits compound.",

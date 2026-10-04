@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   X, Bot, ShieldCheck, TrendingUp, TrendingDown, Target, 
   CheckCircle2, Clock, AlertCircle, ArrowUpRight, ArrowDownRight, 
@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { CandlestickChart } from '@/components/charts/candlestick-chart';
 import { formatINR, formatUSDT } from '@/lib/utils';
+import { getAgentMeta } from '@/lib/strategy-agents/agent-config';
+import { AgentPortrait } from '@/components/strategy-agents/agent-portrait';
 import type { Candle, CandleInterval } from '@/types/market';
 
 interface DrawingLevel {
@@ -37,6 +39,29 @@ interface TradeHistoryItem {
   closedAt: string | null;
 }
 
+interface AgentConditionReport {
+  strategyKey: string;
+  strategyName: string;
+  symbol: string;
+  currentPrice: number;
+  marketRegime: string;
+  confidence: number;
+  confidenceThreshold: number;
+  conditionsMet: Array<{ label: string; detail: string; status: 'MET' }>;
+  conditionsNeeded: Array<{ label: string; detail: string; status: 'PENDING' }>;
+  checklist: Array<{ direction: 'BUY' | 'SELL'; label: string; passed: boolean; detail: string }>;
+  evaluatedBarTime: number | null;
+  dataStale?: boolean;
+  dataSource?: string;
+  supportPrice: number;
+  resistancePrice: number;
+  ema20: number | null;
+  ema50: number | null;
+  rsi14: number | null;
+  atr14: number | null;
+  thesis: string;
+}
+
 interface AgentTelemetryPayload {
   agent: {
     id: string;
@@ -52,6 +77,8 @@ interface AgentTelemetryPayload {
     isPaused: boolean;
   };
   inTrade: boolean;
+  marketDataStale: boolean;
+  marketDataStatus: string;
   tradeDetails?: {
     id: string;
     symbol: string;
@@ -73,26 +100,11 @@ interface AgentTelemetryPayload {
     entryReason: string;
     openedAt: string;
   };
-  conditionReport?: {
-    strategyKey: string;
-    strategyName: string;
-    symbol: string;
-    currentPrice: number;
-    marketRegime: string;
-    confidence: number;
-    confidenceThreshold: number;
-    conditionsMet: Array<{ label: string; detail: string; status: 'MET' }>;
-    conditionsNeeded: Array<{ label: string; detail: string; status: 'PENDING' }>;
-    supportPrice: number;
-    resistancePrice: number;
-    ema20: number | null;
-    ema50: number | null;
-    rsi14: number | null;
-    atr14: number | null;
-    thesis: string;
-  };
+  conditionReport?: AgentConditionReport;
+  marketReports?: AgentConditionReport[];
   drawingLevels: DrawingLevel[];
   candles: Candle[];
+  candlesByInterval?: Partial<Record<CandleInterval, Candle[]>>;
   assetSymbol: string;
   tradeHistory?: TradeHistoryItem[];
 }
@@ -100,17 +112,21 @@ interface AgentTelemetryPayload {
 interface AgentDetailModalProps {
   competitionId: string;
   agentId: string;
+  rank?: number;
   onClose: () => void;
 }
 
-export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetailModalProps) {
+export function AgentDetailModal({ competitionId, agentId, rank, onClose }: AgentDetailModalProps) {
   const [data, setData] = useState<AgentTelemetryPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [interval, setInterval] = useState<CandleInterval>('5m');
-  const [activeTab, setActiveTab] = useState<'TELEMETRY' | 'HISTORY'>('TELEMETRY');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'CHART' | 'TELEMETRY' | 'STRATEGY' | 'LOGS'>('OVERVIEW');
+  const telemetryRequestInFlight = useRef(false);
 
   const fetchTelemetry = async () => {
+    if (telemetryRequestInFlight.current) return;
+    telemetryRequestInFlight.current = true;
     try {
       const res = await fetch(`/api/strategy-agents/${competitionId}/agent/${agentId}`, { cache: 'no-store' });
       const payload = await res.json();
@@ -120,13 +136,14 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading details.');
     } finally {
+      telemetryRequestInFlight.current = false;
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchTelemetry();
-    const timer = window.setInterval(fetchTelemetry, 10_000);
+    const timer = window.setInterval(fetchTelemetry, 1_000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [competitionId, agentId]);
@@ -146,64 +163,45 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
   };
 
   const tradeHistory = data?.tradeHistory || [];
+  const agentMeta = getAgentMeta(data?.agent.key || data?.agent.name || agentId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-stretch justify-end bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div 
-        className="relative w-full max-w-5xl rounded-3xl border border-white/10 bg-[#0a0e19] shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col"
+        className="relative flex h-full w-full max-w-6xl flex-col overflow-hidden border-l border-cyan-300/20 bg-[#080e1b] shadow-2xl sm:my-3 sm:mr-3 sm:h-[calc(100%-24px)] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between border-b border-white/[0.08] px-6 py-4 bg-[#0d1222] gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-400/30 bg-violet-500/10 text-violet-300 shadow-inner">
-              <Bot className="h-6 w-6" />
-            </span>
+            <AgentPortrait image={agentMeta.image} name={agentMeta.fullName} className="h-16 w-14 rounded-xl" />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-white tracking-wide">
-                  {data?.agent.name || 'Strategy Unit Telemetry'}
+                  {agentMeta.fullName}
                 </h2>
                 {data && (
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                    data.inTrade 
+                    data.agent.isPaused ? 'bg-amber-500/10 text-amber-200 border-amber-400/30' : data.inTrade
                       ? 'bg-cyan-500/10 text-cyan-300 border-cyan-400/30 animate-pulse'
                       : 'bg-violet-500/10 text-violet-300 border-violet-400/30'
                   }`}>
-                    {data.inTrade ? `IN POSITION · ${data.tradeDetails?.side}` : 'SCANNING FOR ENTRY'}
+                    {data.agent.isPaused ? 'RISK LOCK' : data.inTrade ? `POSITION LIVE · ${data.tradeDetails?.side}` : 'SCANNING'}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{data?.agent.description}</p>
+              <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">#{String(rank || 1).padStart(2, '0')} · {agentMeta.fullName}</p>
             </div>
           </div>
 
           {/* Tab Navigation & Controls */}
           <div className="flex items-center gap-2">
-            <div className="flex rounded-xl bg-black/40 border border-white/10 p-1">
-              <button
-                onClick={() => setActiveTab('TELEMETRY')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                  activeTab === 'TELEMETRY'
-                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Live Telemetry
-              </button>
-              <button
-                onClick={() => setActiveTab('HISTORY')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                  activeTab === 'HISTORY'
-                    ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Trade History
-                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-black/40 text-cyan-200">
-                  {tradeHistory.length}
-                </span>
-              </button>
+            <div className="flex max-w-[min(75vw,560px)] gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/40 p-1">
+              {(['OVERVIEW', 'CHART', 'TELEMETRY', 'STRATEGY', 'LOGS'] as const).map((tab) => (
+                <button key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all sm:px-3 ${activeTab === tab ? 'bg-cyan-500/20 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,.16)]' : 'text-slate-400 hover:text-white'}`}>
+                  {tab === 'LOGS' ? `Logs · ${tradeHistory.length}` : tab}
+                </button>
+              ))}
             </div>
 
             <button
@@ -239,13 +237,13 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
             </div>
           )}
 
-          {data && activeTab === 'HISTORY' && (
+          {data && activeTab === 'LOGS' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-cyan-400" />
                   <h3 className="text-sm font-black uppercase tracking-wider text-white">
-                    Agent Execution Ledger · {tradeHistory.length} Trades Recorded
+                    Agent Execution Ledger · {tradeHistory.length} Recent Trades
                   </h3>
                 </div>
                 <span className="text-[10px] text-slate-400 font-mono">
@@ -337,7 +335,7 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
             </div>
           )}
 
-          {data && activeTab === 'TELEMETRY' && (
+          {data && activeTab === 'OVERVIEW' && (
             <>
               {/* Telemetry Overview Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -463,58 +461,35 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                 </div>
               )}
 
-              {/* CONDITIONS MET & CONDITIONS NEEDED (When NOT in a Trade) */}
-              {!data.inTrade && data.conditionReport && (
-                <div className="space-y-4">
-                  <div className="p-4 rounded-2xl border border-white/10 bg-[#0e1424]">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Market Regime</span>
-                        <h4 className="text-sm font-bold text-white mt-0.5 flex items-center gap-2">
-                          <span className={`h-2 w-2 rounded-full ${
-                            data.conditionReport.marketRegime === 'BULLISH' ? 'bg-emerald-400' :
-                            data.conditionReport.marketRegime === 'BEARISH' ? 'bg-rose-400' : 'bg-amber-400'
-                          }`} />
-                          {data.conditionReport.marketRegime} ({data.assetSymbol})
-                        </h4>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Algorithm Confidence</span>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-mono text-xs font-bold text-white">
-                            {(data.conditionReport.confidence * 100).toFixed(0)}%
-                          </span>
-                          <span className="text-[10px] text-slate-500">/ 65% gate</span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Confidence Progress Bar */}
-                    <div className="mt-2.5 h-2 rounded-full bg-black/50 overflow-hidden relative">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          data.conditionReport.confidence >= 0.65 
-                            ? 'bg-gradient-to-r from-emerald-500 to-cyan-400' 
-                            : 'bg-gradient-to-r from-amber-500 to-violet-400'
-                        }`}
-                        style={{ width: `${Math.min(100, data.conditionReport.confidence * 100)}%` }}
-                      />
-                      <div 
-                        className="absolute top-0 bottom-0 w-0.5 bg-white shadow"
-                        style={{ left: '65%' }}
-                        title="Execution Gate (65%)"
-                      />
-                    </div>
-                  </div>
+            </>
+          )}
 
+          {data && activeTab === 'TELEMETRY' && (
+            <>
+              {data.inTrade && data.tradeDetails ? (
+                <div className="arena-info-strip"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-cyan-200" /><span>Position telemetry is live for {data.tradeDetails.symbol}. Review the current mark, risk levels, and unrealized P&amp;L in Overview; the chart and verified price levels are in Chart.</span></div>
+              ) : null}
+              {/* Strategy checks are available both before entry and while holding spot. */}
+              {data.conditionReport && (
+                <div className="space-y-4">
+                  {data.agent.currency === 'USDT' && <div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-3 py-2 text-[11px] leading-5 text-cyan-100/80">Spot rules: BUY checks can open a holding. SELL checks signal a bearish close of an existing holding; they never open a short position.</div>}
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">Checks are evaluated on the last completed 5-minute candle to match entry decisions. Live prices can update between candles.</p>
+
+                  {(data.marketReports?.length ? data.marketReports : [data.conditionReport]).map((pairReport) => pairReport && (
+                  <section key={pairReport.symbol} className="space-y-2.5">
+                  <div className="flex items-center justify-between rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] px-4 py-2.5">
+                    <div><h4 className="text-xs font-black tracking-widest text-cyan-100">{pairReport.symbol} CHECKLIST{pairReport.dataStale ? ' · STALE DATA' : ''}</h4><p className="mt-1 text-[10px] uppercase tracking-wider text-slate-400">{pairReport.marketRegime} · PRICE {pairReport.currentPrice.toLocaleString(undefined, { maximumFractionDigits: 4 })}{pairReport.evaluatedBarTime ? ` · RULES AT ${new Date(pairReport.evaluatedBarTime * 1000).toLocaleTimeString()}` : ''}{pairReport.dataSource ? ` · ${pairReport.dataSource}` : ''}</p></div>
+                    <div className="text-right"><span className="text-[9px] text-slate-500">RULE SCORE · ENTRY GATE</span><p className="font-mono text-xs text-white">{(pairReport.confidence * 100).toFixed(0)}% · {(pairReport.confidenceThreshold * 100).toFixed(0)}%</p></div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Column 1: Conditions Met */}
                     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-4 space-y-3">
                       <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider border-b border-emerald-500/10 pb-2">
                         <CheckCircle2 className="h-4 w-4" />
-                        Conditions Met ({data.conditionReport.conditionsMet.length})
+                      Checks Met ({pairReport.conditionsMet.length})
                       </div>
                       <ul className="space-y-2.5">
-                        {data.conditionReport.conditionsMet.map((c, i) => (
+                        {pairReport.conditionsMet.map((c, i) => (
                           <li key={i} className="flex items-start gap-2.5 text-xs text-slate-200">
                             <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
                             <div>
@@ -523,7 +498,7 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                             </div>
                           </li>
                         ))}
-                        {!data.conditionReport.conditionsMet.length && (
+                        {!pairReport.conditionsMet.length && (
                           <li className="text-xs text-slate-500 italic">No primary conditions confirmed on current bar.</li>
                         )}
                       </ul>
@@ -533,10 +508,10 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                     <div className="rounded-2xl border border-amber-500/20 bg-amber-950/10 p-4 space-y-3">
                       <div className="flex items-center gap-2 text-amber-300 font-bold text-xs uppercase tracking-wider border-b border-amber-500/10 pb-2">
                         <Clock className="h-4 w-4" />
-                        Conditions Needed to Meet ({data.conditionReport.conditionsNeeded.length})
+                        Checks Still Needed ({pairReport.conditionsNeeded.length})
                       </div>
                       <ul className="space-y-2.5">
-                        {data.conditionReport.conditionsNeeded.map((c, i) => (
+                        {pairReport.conditionsNeeded.map((c, i) => (
                           <li key={i} className="flex items-start gap-2.5 text-xs text-slate-200">
                             <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
                             <div>
@@ -545,14 +520,34 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                             </div>
                           </li>
                         ))}
+                        {!pairReport.conditionsNeeded.length && <li className="text-xs text-emerald-300">All reported strategy checks are met on this candle.</li>}
                       </ul>
                     </div>
                   </div>
+                  </section>
+                  ))}
                 </div>
               )}
 
+            </>
+          )}
+
+          {data && activeTab === 'STRATEGY' && (
+            <section className="game-panel space-y-4 p-5 sm:p-6">
+              <div className="flex items-center gap-3 border-b border-white/[0.08] pb-4">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-300/20 bg-violet-400/10 text-violet-200"><Sparkles className="h-5 w-5" /></span>
+                <div><h3 className="text-sm font-black uppercase tracking-widest text-white">Strategy Thesis</h3><p className="mt-1 text-xs text-slate-400">{agentMeta.fullName} · {data.assetSymbol}</p></div>
+              </div>
+              <p className="text-sm leading-6 text-slate-200">{data.tradeDetails?.entryReason || data.conditionReport?.thesis || 'Strategy thesis is unavailable until the market feed reports current conditions.'}</p>
+              {data.conditionReport ? <div className="grid gap-3 sm:grid-cols-3"><div className="agent-stat"><span>MARKET REGIME</span><strong>{data.conditionReport.marketRegime}</strong></div><div className="agent-stat"><span title="Fixed strategy-rule score; not a statistically calibrated win probability.">RULE SCORE · NOT WIN PROBABILITY</span><strong>{(data.conditionReport.confidence * 100).toFixed(0)}% · {(data.conditionReport.confidenceThreshold * 100).toFixed(0)}% entry gate</strong></div><div className="agent-stat"><span>SYMBOL</span><strong>{data.assetSymbol}</strong></div></div> : <p className="text-xs text-amber-200">Live strategy conditions are currently unavailable.</p>}
+            </section>
+          )}
+
+          {data && activeTab === 'CHART' && (
+            <>
               {/* CHART & DRAWING LEVELS OVERLAY */}
               <div className="space-y-3">
+                {data.marketDataStale && <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">{data.marketDataStatus}. {data.candles.length ? 'The chart is showing the last available candles and price, not a live quote.' : 'No chart candles are available for this market yet.'}</div>}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-violet-400" />
@@ -584,6 +579,9 @@ export function AgentDetailModal({ competitionId, agentId, onClose }: AgentDetai
                     onIntervalChange={setInterval}
                     drawingLevels={data.drawingLevels}
                     livePrice={data.inTrade ? data.tradeDetails?.currentPrice : data.conditionReport?.currentPrice}
+                    livePriceIsStale={data.marketDataStale}
+                    dataStatus={data.marketDataStatus}
+                    candlesByInterval={data.candlesByInterval}
                     currency={currency}
                   />
                 </div>

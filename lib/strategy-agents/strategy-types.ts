@@ -2,6 +2,12 @@ import type { Candle } from '../../types/market';
 
 export type StrategyRegime = 'BULLISH' | 'BEARISH' | 'SIDEWAYS' | 'UNKNOWN';
 export type StrategySignalAction = 'LONG' | 'SHORT' | 'EXIT' | 'NO_TRADE';
+export interface StrategyRuleCheck {
+  direction: 'BUY' | 'SELL';
+  label: string;
+  passed: boolean;
+  detail: string;
+}
 export type StrategyKey = 'ict_smc' | 'wyckoff' | 'trend_following' | 'breakout_retest' | 'mean_reversion' | 'vwap' | 'opening_range' | 'momentum' | 'order_flow' | 'statistical_pairs';
 export interface StrategySignal {
   strategy: string;
@@ -14,19 +20,48 @@ export interface StrategySignal {
   risk_reward: number | null;
   reason: string[];
   timestamp: string;
+  checklist?: StrategyRuleCheck[];
 }
+
+/* ── Higher-Timeframe Bias ────────────────────────────────────────────── */
+
+export type HtfTimeframeLabel = '15m' | '1h' | '1d';
+
+export interface HtfTimeframeBias {
+  timeframe: HtfTimeframeLabel;
+  trend: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  emaFastAboveSlow: boolean;
+  priceAboveEmaFast: boolean;
+  keyResistance: number;
+  keySupport: number;
+  rsi: number;
+}
+
+export interface HtfBias {
+  m15?: HtfTimeframeBias;
+  h1?: HtfTimeframeBias;
+  d1?: HtfTimeframeBias;
+  /** Returns whether the majority of available higher timeframes agree with the proposed direction. */
+  aligned: (direction: 'LONG' | 'SHORT') => { agreed: boolean; detail: string };
+}
+
+/* ── Strategy Context ─────────────────────────────────────────────────── */
 
 export interface StrategyContext {
   candles: Candle[];
   /** True only when this strategy already owns an open position. */
   hasPosition?: boolean;
   positionSide?: 'LONG' | 'SHORT';
-  /** Optional exchange supplied order-flow data; never inferred from candle volume. */
-  orderFlow?: Array<{ time: number; bidVolume: number; askVolume: number; delta: number; cvd: number }>;
+  /** Optional exchange supplied taker buy/sell volume; never inferred from candle volume alone. */
+  orderFlow?: Array<{ time: number; buyerInitiatedVolume: number; sellerInitiatedVolume: number; delta: number; cvd: number }>;
   /** Synchronized close series keyed by instrument, with same-time observations. */
   relatedSeries?: Record<string, Array<{ time: number; close: number }>>;
+  /** Set only by an executor capable of opening/closing both pair legs atomically. */
+  supportsPairedExecution?: boolean;
   timeframeMinutes?: number;
   config?: Partial<StrategyConfig>;
+  /** Multi-timeframe bias analysis (15m, 1h, 1d). When present, strategies use this to filter entries. */
+  htfBias?: HtfBias;
 }
 
 export interface StrategyConfig {

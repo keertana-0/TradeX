@@ -1,5 +1,5 @@
 import type { Candle } from '../../types/market';
-import { DEFAULT_STRATEGY_CONFIG, type StrategyConfig, type StrategyContext, type StrategyRegime, type StrategySignal, type StrategySignalAction } from './strategy-types';
+import { DEFAULT_STRATEGY_CONFIG, type StrategyConfig, type StrategyContext, type StrategyRegime, type StrategyRuleCheck, type StrategySignal, type StrategySignalAction } from './strategy-types';
 const istDateFormatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
 const istMinuteFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 export const istDateKeyFromSeconds = (seconds: number) => istDateFormatter.format(new Date(seconds * 1000));
@@ -30,8 +30,15 @@ export function signal(name: string, candles: Candle[], action: StrategySignalAc
     reason, timestamp: last ? new Date(last.time * 1000).toISOString() : new Date(0).toISOString(),
   };
 }
-export function noTrade(name: string, candles: Candle[], reason: string, regime: StrategyRegime = 'UNKNOWN'): StrategySignal {
-  return signal(name, candles, 'NO_TRADE', regime, [reason]);
+export function noTrade(name: string, candles: Candle[], reason: string, regime: StrategyRegime = 'UNKNOWN', setupScore = 0): StrategySignal {
+  return signal(name, candles, 'NO_TRADE', regime, [reason], null, null, Math.min(0.64, Math.max(0, setupScore)));
+}
+/** Fraction of the strategy's explicit entry checks currently satisfied; deliberately capped below the execution gate. */
+export function ruleProgress(...checks: boolean[]): number {
+  return checks.length ? Number((checks.filter(Boolean).length / checks.length * 0.64).toFixed(4)) : 0;
+}
+export function withChecklist<T extends StrategySignal>(output: T, checklist: StrategyRuleCheck[]): T {
+  return { ...output, checklist };
 }
 export function atr(c: Candle[], period: number): number | null {
   if (c.length < period + 1) return null;

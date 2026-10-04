@@ -377,7 +377,7 @@ model StrategyTrade {
   agentId               String
   symbol                String              @default("NIFTY50")
   status                StrategyTradeStatus @default(OPEN)
-  quantity              Int
+  quantity              Float
   entryPrice            Decimal             @db.Decimal(18, 4)
   currentPrice          Decimal             @db.Decimal(18, 4)
   stopLossPrice         Decimal             @db.Decimal(18, 4)
@@ -428,4 +428,19 @@ model StrategyAgentSnapshot {
 
   @@index([agentId, recordedAt])
   @@map("strategy_agent_snapshots")
+}
+
+model StrategyTelegramStatus {
+  id           String   @id @default(uuid())
+  botNumber    Int
+  marketType   String
+  chatId       String
+  messageId    Int
+  statusCode   String
+  messageText  String   @db.Text
+  lastEditedAt DateTime @default(now())
+
+  @@unique([botNumber, marketType, chatId])
+  @@index([chatId, lastEditedAt])
+  @@map("strategy_telegram_status")
 }

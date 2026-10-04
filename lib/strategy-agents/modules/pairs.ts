@@ -1,11 +1,18 @@
 import type { StrategyContext, StrategyModule } from '../strategy-types';
-import { closedCandles, configFor, noTrade, signal } from '../strategy-utils';
+import { closedCandles, configFor, noTrade, signal, withChecklist } from '../strategy-utils';
 export const pairsStrategy: StrategyModule = {
   key: 'statistical_pairs', name: 'Statistical Mean Reversion / Pairs',
   description: 'Requires synchronized related-instrument closes, stable rolling correlation, and a spread z-score extreme.',
   evaluate(context: StrategyContext) {
     const c = closedCandles(context), cfg = configFor(context), pair = Object.entries(context.relatedSeries || {})[0];
-    if (!pair) return noTrade(this.name, c, 'No synchronized related instrument was supplied; pairs trading is disabled.');
+    if (!context.supportsPairedExecution) return withChecklist(noTrade(this.name, c, 'Disabled: this paper executor cannot open and close both pair legs atomically.'), [
+      { direction: 'BUY', label: 'Atomic two-leg execution available', passed: false, detail: 'Pairs trading requires both legs to open and close together; this executor supports only one position per agent.' },
+      { direction: 'SELL', label: 'Atomic two-leg execution available', passed: false, detail: 'Pairs trading requires both legs to open and close together; this executor supports only one position per agent.' },
+    ]);
+    if (!pair) return withChecklist(noTrade(this.name, c, 'No synchronized related instrument was supplied; pairs trading is disabled.'), [
+      { direction: 'BUY', label: 'Synchronized pair data', passed: false, detail: 'A second instrument with matching candle timestamps is required.' },
+      { direction: 'SELL', label: 'Synchronized pair data', passed: false, detail: 'A second instrument with matching candle timestamps is required.' },
+    ]);
     const [symbol, rows] = pair, aligned = rows.filter(x => Number.isFinite(x.time) && Number.isFinite(x.close) && x.close > 0).sort((a, b) => a.time - b.time);
     const common = new Map(aligned.map(x => [x.time, x.close]));
     const points = c.filter(x => common.has(x.time)).slice(-cfg.pairsLookback).map(x => [x.close, common.get(x.time)!] as const);

@@ -146,7 +146,9 @@ describe('Market Regime & Options Signal Engine', () => {
     expect(result.metrics.totalTrades).toBe(4);
     expect(result.trades.every((trade) => trade.date === '2025-02-04')).toBe(true);
     expect(result.trades.find((trade) => trade.strike === 110 && trade.optionType === 'CE')?.entryPrice).toBe(7);
-    expect(result.trades.find((trade) => trade.strike === 110 && trade.optionType === 'CE')?.exitPrice).toBe(3);
+    // The session low crossed the 50% stop (3.50 from a 7.00 adjusted entry),
+    // so the stop price takes priority over the later daily close at 3.00.
+    expect(result.trades.find((trade) => trade.strike === 110 && trade.optionType === 'CE')?.exitPrice).toBe(3.5);
   });
 
   it('does not create a daily fill when the next session lacks the selected contract', async () => {
@@ -162,7 +164,7 @@ describe('Market Regime & Options Signal Engine', () => {
     expect(result.trades).toHaveLength(0);
   });
 
-  it('reduces later position size when losses reduce account equity', async () => {
+  it('applies the per-leg stop and blocks a later entry when reduced equity cannot afford one lot', async () => {
     const observations: DailyHistoricalOptionObservation[] = [];
     const addDay = (date: string, open: number, close: number) => {
       for (const strike of [90, 110]) {
@@ -180,9 +182,10 @@ describe('Market Regime & Options Signal Engine', () => {
     }, observations);
 
     expect(result.status).toBe('SUCCESS');
-    expect(result.dailyResults?.[0].pnl).toBe(-2_700);
+    expect(result.dailyResults?.[0].pnl).toBe(-1_500);
     expect(result.dailyResults?.[1].pnl).toBe(0);
     expect(result.trades.every((trade) => trade.quantity === 75 && trade.lotSize === 75 && trade.lots === 1)).toBe(true);
-    expect(result.metrics.finalCapital).toBe(1_300);
+    expect(result.trades).toHaveLength(4);
+    expect(result.metrics.finalCapital).toBe(2_500);
   });
 });
